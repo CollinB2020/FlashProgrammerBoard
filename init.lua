@@ -2,7 +2,6 @@
 -- Function to start the programmer.lua file after a delay
 local function startProgrammer()
     print("\nStarting programmer.lua file...")
-    dofile("OLED.lua")
     dofile("programmer.lua")
 end
 

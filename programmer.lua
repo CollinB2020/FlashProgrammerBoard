@@ -1,3 +1,6 @@
+local OLED = dofile("OLED.lua")
+OLED.init()
+
 --Shift Register Pins
 local sData = 2 -- GPIO4
 local shiftClk = 4 -- GPIO2, goes to all 4 shift registers
@@ -82,12 +85,12 @@ local function shift_bit(bit)
         gpio.write(sData, gpio.LOW)
     end
 
-    tmr.delay(1000)
+    tmr.delay(5)
     -- Cycle shift registers
     gpio.write(shiftClk, gpio.HIGH)
-    tmr.delay(1000) -- wait 1000 us
+    tmr.delay(5)
     gpio.write(shiftClk, gpio.LOW)
-    tmr.delay(1000)
+    tmr.delay(5)
 
     -- Reset to high so OE of data is not enabled
     --gpio.write(sData, gpio.HIGH)
@@ -114,10 +117,11 @@ local function load_addr_reg(byte1, byte2, byte3)
         end
 
         -- Latch the address shift registers
+        tmr.delay(5)
         gpio.write(addrLatch, gpio.HIGH)
-        tmr.delay(1000) -- wait 10 us
+        tmr.delay(5)
         gpio.write(addrLatch, gpio.LOW)
-        tmr.delay(1000)
+        tmr.delay(5)
 
         -- Set the serial Data wire to the 17th bit value (A16)
         local bit = bitwise_and(math.floor(numAddr / (2^16)), 0x01)
@@ -125,8 +129,6 @@ local function load_addr_reg(byte1, byte2, byte3)
         for i = 14, 0, -1 do
             shift_bit(0) -- Shift bits 15 times to get the LSB to the MSB
         end
-        tmr.delay(1000)
-
     else
         print("Error: Three input bytes are required.")
         return
@@ -150,9 +152,11 @@ local function load_data_reg(byte)
         end
 
         -- Latch the data shift register
+        tmr.delay(5)
         gpio.write(dataLatch, gpio.LOW)
-        tmr.delay(1000) -- wait 1000 us
+        tmr.delay(5)
         gpio.write(dataLatch, gpio.HIGH)
+        tmr.delay(5)
     else
         print("Error: Input byte must be a string of exactly one byte.")
     end
@@ -168,13 +172,13 @@ local function load_read_data()
 
     -- Enable Output on ROM
     gpio.write(OE, gpio.LOW)
-    tmr.delay(10)
+    tmr.delay(5)
 
     -- Latch current output from ROM
     gpio.write(dataLatch, gpio.LOW)
-    tmr.delay(1000) -- wait 1 us
+    tmr.delay(5)
     gpio.write(dataLatch, gpio.HIGH)
-    tmr.delay(1000)
+    tmr.delay(5)
 
     -- Disable Output on ROM
     gpio.write(OE, gpio.HIGH)
@@ -182,7 +186,7 @@ local function load_read_data()
     -- Read in each bit of the byte one at a time
     for i = 7, 0, -1 do
 
-        tmr.delay(100) -- wait 1 us between bits
+        tmr.delay(5)
 
         -- Read the data pin and shift the received bit into the byte
         local dataBit = 0
@@ -198,9 +202,10 @@ local function load_read_data()
 
         -- Cycle the serial data clock
         gpio.write(shiftClk, gpio.HIGH)
-        tmr.delay(1000) -- wait 1000 us
+        tmr.delay(5)
         gpio.write(shiftClk, gpio.LOW)
     end
+    tmr.delay(5)
 
     return receivedByte
 end
@@ -234,20 +239,18 @@ local function write_byte(byte, addr)
     end
 
     gpio.write(dataOE, gpio.LOW) -- Enable data register output
+    tmr.delay(10)
 
-    tmr.delay(1) -- wait 1 us
-
-    -- Chip Enable
-    --gpio.write(CE, gpio.HIGH)
     -- Write Enable
     gpio.write(WE, gpio.HIGH)
-    tmr.delay(1) -- wait 1 us
+    tmr.delay(50)
     -- Disable Write
     gpio.write(WE, gpio.HIGH)
     -- Disable Chip
     --gpio.write(CE, gpio.HIGH)
 
     gpio.write(dataOE, gpio.HIGH) -- Disable data register output
+    tmr.delay(10)
 
 
     print("Byte written:", byte)
@@ -256,7 +259,7 @@ end
 -- Returns a byte
 local function read_byte(byte1, byte2, byte3)
 
-    tmr.delay(1000) -- wait 1 ms
+    tmr.delay(5)
 
     -- Verify that three bytes are provided
     if type(byte1) == "number" and type(byte2) == "number" and type(byte3) == "number" then

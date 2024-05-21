@@ -85,12 +85,12 @@ local function shift_bit(bit)
         gpio.write(sData, gpio.LOW)
     end
 
-    tmr.delay(5)
+    --tmr.delay(5)
     -- Cycle shift registers
     gpio.write(shiftClk, gpio.HIGH)
-    tmr.delay(5)
+    --tmr.delay(5)
     gpio.write(shiftClk, gpio.LOW)
-    tmr.delay(5)
+    --tmr.delay(5)
 
     -- Reset to high so OE of data is not enabled
     --gpio.write(sData, gpio.HIGH)
@@ -107,21 +107,21 @@ local function load_addr_reg(byte1, byte2, byte3)
         -- Truncate the address to 17 bits (only the 17 address bits are allowed)
         numAddr = bitwise_and(numAddr, 0x1FFFF)
 
-        -- Iterate over each bit of the address (17 bits)
+        -- Iterate over each bit of the address (assuming 16 bits for generality)
         for i = 15, 0, -1 do
-            -- Extract the i-th bit from the address
-            local bit = bitwise_and(math.floor(numAddr / (2^i)), 0x01)
+            -- Extract the i-th bit from the address using bitwise shift and mask
+            local bit = bitwise_and(numAddr, 2^i) > 0 and 1 or 0
             
             -- Shift the bit into the shift registers
             shift_bit(bit)
         end
 
         -- Latch the address shift registers
-        tmr.delay(5)
+        --tmr.delay(5)
         gpio.write(addrLatch, gpio.HIGH)
-        tmr.delay(5)
+        --tmr.delay(5)
         gpio.write(addrLatch, gpio.LOW)
-        tmr.delay(5)
+        --tmr.delay(5)
 
         -- Set the serial Data wire to the 17th bit value (A16)
         local bit = bitwise_and(math.floor(numAddr / (2^16)), 0x01)
@@ -152,11 +152,11 @@ local function load_data_reg(byte)
         end
 
         -- Latch the data shift register
-        tmr.delay(5)
+        --tmr.delay(5)
         gpio.write(dataLatch, gpio.LOW)
-        tmr.delay(5)
+        --tmr.delay(5)
         gpio.write(dataLatch, gpio.HIGH)
-        tmr.delay(5)
+        --tmr.delay(5)
     else
         print("Error: Input byte must be a string of exactly one byte.")
     end
@@ -172,13 +172,13 @@ local function load_read_data()
 
     -- Enable Output on ROM
     gpio.write(OE, gpio.LOW)
-    tmr.delay(5)
+    --tmr.delay(5)
 
     -- Latch current output from ROM
     gpio.write(dataLatch, gpio.LOW)
-    tmr.delay(5)
+    --.delay(5)
     gpio.write(dataLatch, gpio.HIGH)
-    tmr.delay(5)
+    --tmr.delay(5)
 
     -- Disable Output on ROM
     gpio.write(OE, gpio.HIGH)
@@ -186,7 +186,7 @@ local function load_read_data()
     -- Read in each bit of the byte one at a time
     for i = 7, 0, -1 do
 
-        tmr.delay(5)
+        --tmr.delay(5)
 
         -- Read the data pin and shift the received bit into the byte
         local dataBit = 0
@@ -239,11 +239,11 @@ local function write_byte(byte, addr)
     end
 
     gpio.write(dataOE, gpio.LOW) -- Enable data register output
-    tmr.delay(10)
+    tmr.delay(100)
 
     -- Write Enable
-    gpio.write(WE, gpio.HIGH)
-    tmr.delay(50)
+    gpio.write(WE, gpio.LOW)
+    tmr.delay(120)
     -- Disable Write
     gpio.write(WE, gpio.HIGH)
     -- Disable Chip
@@ -259,7 +259,7 @@ end
 -- Returns a byte
 local function read_byte(byte1, byte2, byte3)
 
-    tmr.delay(5)
+    --tmr.delay(5)
 
     -- Verify that three bytes are provided
     if type(byte1) == "number" and type(byte2) == "number" and type(byte3) == "number" then
@@ -269,13 +269,22 @@ local function read_byte(byte1, byte2, byte3)
         print("Error: Three numerical values representing bytes are required.")
         return
     end
+    --tmr.delay(100)
 
     -- Logic to read a byte
     return load_read_data()
 end
 
--- Function to read bytes from address 0x000000 to 0x01FFFF and save to a file
+ -- Function to read bytes from address 0x000000 to 0x01FFFF and save to a file
 local function read_and_save_bytes(filename)
+
+    if file.exists(filename) then
+        file.remove(filename)
+        print("File deleted:", filename)
+    else
+        print("File does not exist:", filename)
+    end
+
     -- Open the file in binary write mode
     local file = file.open(filename, "w+")
     if not file then
@@ -285,9 +294,7 @@ local function read_and_save_bytes(filename)
 
     -- Iterate over addresses from 0x000000 to 0x01FFFF
     for addr = 0x000000, 0x01FFFF do
-
-        local hexString = string.format("%X", addr)
-        print("Read addr:", hexString)
+    --for addr = 0x000000, 0x000FFF do
 
         -- Calculate the byte address components
         local byte1 = math.floor(addr / 0x10000) % 0x100
@@ -296,6 +303,8 @@ local function read_and_save_bytes(filename)
 
         -- Read a byte from the address (assuming read_byte function is defined elsewhere)
         local byte = read_byte(byte1, byte2, byte3)
+
+        OLED.show_read_byte(addr, byte)
 
         -- Write the byte to the file
         file.write(string.char(byte))
@@ -308,29 +317,12 @@ end
 
 
 
-
 -- Check for data file and create one if it doesnt exist
 print("Checking for existing data.txt...")
 if(file.exists("data.txt")) then
     print("Found data.txt")
 end
 
-
-print("Reading 0x014A4A")
-local hexString = string.format("%X", read_byte(0x01, 0x4A, 0x4A))
-print("Value:", hexString)
-
-print("Reading 0x011FF1")
-hexString = string.format("%X", read_byte(0x01, 0x1F, 0xF1))
-print("Value:", hexString)
-
-print("Reading 0x015555")
-hexString = string.format("%X", read_byte(0x01, 0x55, 0x55))
-print("Value:", hexString)
-
-print("Reading 0x00AAAA")
-hexString = string.format("%X", read_byte(0x00, 0xAA, 0xAA))
-print("Value:", hexString)
-
 -- Read all bytes into a file
 read_and_save_bytes("data.bin")
+

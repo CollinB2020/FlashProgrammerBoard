@@ -27,16 +27,22 @@ local function init()
 end
 
 -- Function to write value to display
-local function show_read_byte(x)
+local function show_read_byte(x, y)
+
+    local hex_string = string.format("%X", x)
+    local hex_addr_string = string.format("%X", y)
+
     -- Write value to the display
     disp:clearBuffer()
     disp:drawFrame(0,0,128,64)
     disp:drawFrame(4,4,120,56)
-    disp:drawStr(6, 14, "Reading from: \n\t" .. tostring(x))
+    disp:drawStr(6, 14, "Reading from: " .. hex_string)
+    disp:drawStr(6, 25, "Got: " .. hex_addr_string)
     disp:updateDisplay()
 end
 
 return {
     init = init,
-    show_read_byte = show_read_byte
+    show_read_byte = show_read_byte,
+    show_byte = show_byte
 }

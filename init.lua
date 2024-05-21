@@ -7,4 +7,4 @@ end
 
 -- Create a timer and set it to trigger the startProgrammer function after 15 seconds
 local timer = tmr.create()
-timer:alarm(15000, tmr.ALARM_SINGLE, startProgrammer)
+timer:alarm(20000, tmr.ALARM_SINGLE, startProgrammer)

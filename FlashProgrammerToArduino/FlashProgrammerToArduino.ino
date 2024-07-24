@@ -34,6 +34,8 @@ void writeByte(uint8_t, uint32_t);
 uint8_t readByte(uint32_t);
 void readAndSaveBytes(const char*);
 
+void writeSector(uint16_t, uint8_t);
+
 // Initialize the U8g2 library
 // U8G2_R0 specifies no rotation and U8X8_PIN_NONE specifies no reset pin
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ SCL_PIN, /* data=*/ SDA_PIN);
@@ -44,29 +46,40 @@ ESP8266WebServer server(80);
 // Specify ssid and password to connect to WiFi
 //const char* ssid = "TheTent";
 //const char* password = "Paul&Prue";
-const char* ssid = "SkibidiPhone";
-const char* password = "Marshmallow314";
+//const char* ssid = "SkibidiPhone";
+//const char* password = "Marshmallow314";
+const char* ssid = "ATT928XCd2";
+const char* password = "6c6rr%q4g6hg";
 
-//IPAddress ip(192, 168, 1, 184); // Desired IP address
-//IPAddress gateway(192, 168, 1, 1); // Your router’s gateway address
-//IPAddress subnet(255, 255, 255, 0); // Subnet mask
+IPAddress ip(192, 168, 1, 184); // Desired IP address
+IPAddress gateway(192, 168, 1, 1); // Your router’s gateway address
+IPAddress subnet(255, 255, 255, 0); // Subnet mask
 
 void setup() {
 
-  Serial.begin(115200); // For debugging
+  // Set CPU frequency to 160 MHz
+  system_update_cpu_freq(160);
+
+  Serial.begin(9600); // For debugging
 
   // Initialize the display and the GPIO pins
-  //initDisplay();
+  initDisplay();
   initPins();
-
-  Serial.println();
-  // Begin the reading process off of the memory chip
-  readAndSaveBytes("/data.bin");
 
   // Init WiFi so data can be served
   initWiFi();
+
+  // 5 seconds before writing
+  delay(5000);
+
+  // Attempt writing to a sector
+  writeSector(0x0);
+
+  // Begin the reading process off of the memory chip
+  readAndSaveBytes("/data.bin");
+
   // Update the display to show the Ip address obtained and show a message
-  //showProgressOLED("Serving Data...", 0x1FFFF);
+  showProgressOLED("Serving Data...", 0x1FFFF);
 
   digitalWrite(serialOut, LOW); // Turn off builtin LED once finished and data is being served
 }
@@ -81,20 +94,20 @@ void initWiFi() {
   WiFi.begin(ssid, password);
   //WiFi.config(ip, gateway, subnet);
 
-  Serial.print("Connecting to WiFi");
+  //Serial.print("Connecting to WiFi");
   bool LED = 0;
   while (WiFi.status() != WL_CONNECTED) {
     delay(1000);
-    Serial.print(".");
+    //Serial.print(".");
     LED *= -1;
     digitalWrite(serialOut, LED);
   }
-  Serial.println();
-  Serial.print("Connected to WiFi. IP address: ");
-  Serial.println(WiFi.localIP());
+  //Serial.println();
+  //Serial.print("Connected to WiFi. IP address: ");
+  //Serial.println(WiFi.localIP());
 
-  Serial.print("MAC address: ");
-  Serial.println(WiFi.macAddress());
+  //Serial.print("MAC address: ");
+  //Serial.println(WiFi.macAddress());
 
   // Define the routes
   server.on("/", HTTP_GET, handleRoot);
@@ -102,7 +115,7 @@ void initWiFi() {
 
   // Start the server
   server.begin();
-  Serial.println("HTTP server started");
+  //Serial.println("HTTP server started");
 }
 
 void initDisplay() {
@@ -187,19 +200,19 @@ void shiftBit(bool _bit) {
   if (_bit) digitalWrite(serialOut, HIGH);
   else digitalWrite(serialOut, LOW);
 
-  delayMicroseconds(10);
+  delayMicroseconds(1);
 
   // Shift the bit into the shift registers
   digitalWrite(shiftClk, HIGH);
-  delayMicroseconds(10);
+  delayMicroseconds(1);
   digitalWrite(shiftClk, LOW);
 
-  delayMicroseconds(10);
+  delayMicroseconds(1);
 
   // Reset serialOut back to high since it is also the OE' for data
   digitalWrite(serialOut, HIGH);
 
-  delayMicroseconds(10);
+  delayMicroseconds(1);
 }
 
 // Function to perform a series of shifts in order to load and latch an address into registers
@@ -212,20 +225,21 @@ void loadAddrReg(uint32_t _addr) {
 
   // Iterate over each bit of the address (except MSB) and shift the bits into shift registers
   for (int i = 15; i >= 0; i--) {
-    shiftBit((_addr >> i) & 1);
-    if(_addr == 0x1FED5) {
+    shiftBit((_addr >> i) & 0x1);
+    /*if(_addr == 0x1FED5) {
       Serial.println((_addr >> i) & 1);
-    }
+    }*/
   }
 
   // Latch the address registers
+  delayMicroseconds(1);
   digitalWrite(addrLatch, HIGH);
-  delayMicroseconds(10);
+  delayMicroseconds(1);
   digitalWrite(addrLatch, LOW);
-  delayMicroseconds(10);
+  delayMicroseconds(1);
 
   // Use the unlatched serial data output for the 17 bit
-  shiftBit((_addr >> 16) & 1); // Shift the A16 bit into the shift registers
+  shiftBit((_addr >> 16) & 0x1); // Shift the A16 bit into the shift registers
   for (int i = 14; i >= 0; i--) {
     shiftBit(0); // Shift in 15 zeros so the bit A16 is output from shift register
   }
@@ -240,9 +254,9 @@ void loadDataReg(uint8_t _byte) {
 
   // Latch the data register
   digitalWrite(dataLatch, LOW);
-  delayMicroseconds(10);
+  delayMicroseconds(1);
   digitalWrite(dataLatch, HIGH);
-  delayMicroseconds(10);
+  delayMicroseconds(1);
 }
 
 // Returns a byte
@@ -253,21 +267,21 @@ uint8_t loadReadData() {
 
   // Make sure data input reg is disabled
   digitalWrite(writeDataOE, HIGH);
-  delayMicroseconds(10);
+  delayMicroseconds(1);
 
   // Enable Output on ROM
   digitalWrite(romOE, LOW);
-  delayMicroseconds(10);
+  delayMicroseconds(1);
 
   // Latch current output from ROM
   digitalWrite(dataLatch, LOW);
-  delayMicroseconds(10);
+  delayMicroseconds(1);
   digitalWrite(dataLatch, HIGH);
-  delayMicroseconds(10);
+  delayMicroseconds(1);
 
   // Disable Output on ROM
   digitalWrite(romOE, HIGH);
-  delayMicroseconds(10);
+  delayMicroseconds(1);
 
   // Read in each bit of the byte being output
   for (int i = 7; i >= 0; i--) {
@@ -277,9 +291,9 @@ uint8_t loadReadData() {
 
     // Cycle the serial data clock
     digitalWrite(shiftClk, HIGH);
-    delayMicroseconds(10);
+    delayMicroseconds(1);
     digitalWrite(shiftClk, LOW);
-    delayMicroseconds(10);
+    delayMicroseconds(1);
   }
 
   return receivedByte;
@@ -290,28 +304,52 @@ void writeByte(uint8_t _byte, uint32_t _addr) {
 
   // Verify the memory address exists
   if (_addr > 0x1FFFF) {
-    Serial.println("Invalid memory address for writing: ");
-    Serial.println(_addr, HEX);
+    //Serial.println("Invalid memory address for writing: ");
+    //Serial.println(_addr, HEX);
     return;
   }
+
+  // Load the byte into the data register
+  loadDataReg(_byte);
+
+  // Load address into address register
+  loadAddrReg(_addr);
 
   // NOTE: the MSB of the address is not latched, it is stored in the shift registers so ensure that
   // NOTE: the address is also loaded AFTER the data is loaded
 
+  // Ensure ReadDataReg is in shift mode and not latching input
+  digitalWrite(dataLatch, HIGH);
+  delayMicroseconds(1);
+
   // Enable data register output
   digitalWrite(writeDataOE, LOW);
-  delayMicroseconds(10);
+  delayMicroseconds(1);
+
+  //Serial.println("Writing Byte Address: ");
+  //Serial.println(_addr);
   
   // Write Enable
   digitalWrite(romWE, LOW);
-  delayMicroseconds(10);
+  delayMicroseconds(1);
   // End Write Enable
   digitalWrite(romWE, HIGH);
-  delayMicroseconds(10);
+  delayMicroseconds(1);
 
   // Disable data register output
   digitalWrite(writeDataOE, HIGH);
-  delayMicroseconds(10);
+  delayMicroseconds(1);
+}
+
+// Function to write a sector 
+void writeSector(uint16_t _sectorAddr) {
+
+  for (uint32_t byteAddr = 0x0; byteAddr <= 0x3F; byteAddr++) {
+
+    // Perform a write on the byte address
+    writeByte(0x0, byteAddr);
+  }
+
 }
 
 // Returns a byte from the specified memory address
@@ -331,24 +369,24 @@ void readAndSaveBytes(const char* _filename) {
 
   // Initialize the LittleFS file system
   if (!LittleFS.begin()) {
-      Serial.println("An error has occurred while mounting LittleFS");
+      //Serial.println("An error has occurred while mounting LittleFS");
       return;
   }
   
   // Check if the file exists
   if (LittleFS.exists(_filename)) {
       LittleFS.remove(_filename);
-      Serial.print("File deleted: ");
-      Serial.println(_filename);
+      //Serial.print("File deleted: ");
+      //Serial.println(_filename);
   } else {
-      Serial.print("File does not exist: ");
-      Serial.println(_filename);
+      //Serial.print("File does not exist: ");
+      //Serial.println(_filename);
   }
   
   // Open the file in write mode
   File file = LittleFS.open(_filename, "w");
   if (!file) {
-      Serial.println("Error: Unable to open file for writing.");
+      //Serial.println("Error: Unable to open file for writing.");
       return;
   }
 
@@ -356,24 +394,45 @@ void readAndSaveBytes(const char* _filename) {
   // Iterate over addresses from 0x000000 to 0x01FFFF
   for (uint32_t addr = 0x000000; addr <= 0x01FFFF; addr++) {
 
+    // Fill address latch with 0s
+    loadAddrReg(0x0);
+
     // Read a byte from the address
     uint8_t byte = readByte(addr);
 
     // Call the progress function every 0x51E steps
     if (addr % 0x407 == 0) {
-      //showProgressOLED("Reading...", addr);
+      showProgressOLED("Reading...", addr);
     }
 
     // Write the byte to the file
     file.write(byte);
   }
 
+  // Temporary block to test a single address
+  /*for (uint32_t addr = 0x000000; addr <= 0x0000FF; addr++) {
+
+    // Read a byte from the address
+    uint8_t byte1 = readByte(0x1FED5);
+
+    // Read a byte from the address
+    uint8_t byte = readByte(0x1FED9);
+
+    // Call the progress function every 0x51E steps
+    if (addr % 0xF == 0) {
+      showProgressOLED("Reading...", (addr / 0x0000FF) * 0x01FFFF);
+    }
+
+    // Write the byte to the file
+    file.write(byte);
+  }*/
+
   //showProgressOLED("Connecting to WiFi...", 0x1FFFF);
   
   // Close the file
   file.close();
-  Serial.print("Bytes read and saved to file: ");
-  Serial.println(_filename);
+  //Serial.print("Bytes read and saved to file: ");
+  //Serial.println(_filename);
 }
 
 // Handler for the root path "/"
